@@ -1,0 +1,61 @@
+name: card-servicing-agent
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-card}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-card}
+      POSTGRES_DB: ${POSTGRES_DB:-card_servicing}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-card}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-card}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-card}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+    environment:
+      NODE_ENV: development
+      PORT: "4000"
+      DATABASE_URL: postgres://${POSTGRES_USER:-card}:${POSTGRES_PASSWORD:-card}@postgres:5432/${POSTGRES_DB:-card_servicing}
+      MONGO_URL: mongodb://${MONGO_USER:-card}:${MONGO_PASSWORD:-card}@mongo:27017
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_started
+
+  agent:
+    build:
+      context: ../..
+      dockerfile: infra/docker/agent.Dockerfile
+    environment:
+      APP_ENV: development
+      AGENT_PORT: "8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  mongodata:
