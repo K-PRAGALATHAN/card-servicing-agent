@@ -11,3 +11,5 @@ class AppConfig:
     host: str = os.getenv("AGENT_HOST", "0.0.0.0")
     port: int = int(os.getenv("AGENT_PORT", "8000"))
     env: str = os.getenv("APP_ENV", "development")
+    # Intents classified below this confidence escalate to a human.
+    confidence_threshold: float = float(os.getenv("AGENT_CONFIDENCE_THRESHOLD", "0.6"))

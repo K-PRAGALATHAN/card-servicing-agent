@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.domain.health import HealthStatus
 
@@ -15,5 +15,5 @@ class SystemHealthAdapter:
         return HealthStatus(
             service=self._service_name,
             state="healthy",
-            checked_at=datetime.now(timezone.utc).isoformat(),
+            checked_at=datetime.now(UTC).isoformat(),
         )

@@ -84,6 +84,40 @@ curl -s http://localhost:4000/accounts -H "authorization: Bearer <accessToken>"
 
 The seeded customer is _Klaus Crawley_ (`NB00482193`), matching the mobile wireframe.
 
+## Agent (Phase 2)
+
+The `agent` service runs the conversation. **The LLM converses; a deterministic policy
+engine decides.** The model only classifies intent and fills slots — it can never
+authorise or execute an action. Every message runs through the pipeline:
+
+```
+injection guard → classify intent → fill slots → policy engine
+    → request confirmation → execute tool → write audit → explain
+```
+
+Nothing executes without an `allow` decision **and** an explicit customer confirmation,
+and every executed/denied/escalated decision is appended to a **hash-chained audit
+trail** (tamper-evident: recompute the chain and any change breaks the links).
+
+| Method | Path                              | Description                                            |
+| ------ | --------------------------------- | ------------------------------------------------------ |
+| POST   | `/agent/message`                  | Run one turn — `{customer_id, text, conversation_id?}` |
+| GET    | `/agent/conversations/{id}`       | Conversation transcript                                |
+| GET    | `/agent/conversations/{id}/audit` | Hash-chained audit records                             |
+| WS     | `/agent/ws`                       | Streaming turns (used by both frontends)               |
+
+It runs with **no API key** today — a deterministic rule-based model stands in for GPT-4
+behind the `LanguageModel` port (swap it, and nothing else changes). Tool execution and
+customer context are simulated in-memory; wiring them to the Phase 1 API is the next
+integration step.
+
+```bash
+# with the stack up, drive one turn:
+curl -s http://localhost:8000/agent/message \
+  -H 'content-type: application/json' \
+  -d '{"customer_id":"NB00482193","text":"reverse the late fee on my credit card"}'
+```
+
 ## Development plan
 
 Phase-by-phase plan and frontend wireframes live in [`docs/`](docs/) (kept local; not
@@ -94,7 +128,11 @@ committed).
   notification domains, JWT auth, self-transfer, card freeze, servicing requests,
   notification search, OpenAPI. Persistence is seeded in-memory behind repository
   ports (Postgres/Mongo adapters slot in without touching domain or HTTP).
-- **Phase 2 — Conversational agent & policy engine** — next.
+- **Phase 2 — Conversational agent & policy engine** ✅ hexagonal agent pipeline
+  (injection guard → classify → slot-fill → deterministic policy → confirm → execute →
+  audit → explain), versioned policy rules, hash-chained audit, FastAPI + WebSocket.
+  Rule-based LLM stand-in (swap for GPT-4) and in-memory tools/context.
+- **Phase 3 / 4 — Customer app & auditor console** — next.
 
 ## Tech stack
 
