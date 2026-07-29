@@ -12,7 +12,7 @@ services/
   api/            Node.js + Fastify API (hexagonal)   — @card/api
   agent/          FastAPI conversational agent (hexagonal)
 apps/
-  mobile/         React Native customer app            (Phase 3)
+  mobile/         Expo/React Native customer app       — @card/mobile (runs on web too)
   console/        Next.js auditor console              (Phase 4)
 packages/
   shared-types/   Cross-cutting DTOs                   — @card/shared-types
@@ -36,14 +36,26 @@ pnpm dev                   # run dev servers
 
 # full local stack (Postgres, Mongo, api, agent)
 docker compose -f infra/docker/docker-compose.yml up --build
+
+# customer app in the browser (points at the running api + agent)
+pnpm --filter @card/mobile exec expo start --web
 ```
 
 Once running:
 
+- Customer app (web): `http://localhost:8081` — log in as `NB00482193` / `password123`
 - API docs (Swagger UI + OpenAPI): `http://localhost:4000/docs`
 - Health checks: `http://localhost:4000/health` (api), `http://localhost:8000/health` (agent)
 - Postgres is published on host port **5433** (container-internal 5432) to avoid clashes;
   override with `POSTGRES_HOST_PORT`.
+
+### Persistence
+
+The API persists to **PostgreSQL via Prisma** when `DATABASE_URL` is set, and falls back to
+seeded **in-memory** repositories otherwise (tests + offline dev) — both sit behind the same
+repository ports, so swapping one for the other touches nothing in the domain or HTTP layers.
+The Docker stack applies migrations and seeds the demo data (`prisma migrate deploy` +
+`prisma db seed`) automatically on start.
 
 ## API (Phase 1)
 
@@ -67,7 +79,8 @@ The `@card/api` service exposes the customer-facing banking APIs. All routes exc
 | GET        | `/notifications` · `/notifications/search?q=` | List / search notifications                |
 
 **Servicing requests are created ungated (`pending`) in Phase 1** — the deterministic
-policy engine in Phase 2 decides approved/denied/escalated.
+policy engine in Phase 2 decides approved/denied/escalated. `@fastify/cors` is enabled so
+the customer web app can call the API directly from the browser.
 
 ### Try it (seeded demo data)
 
@@ -106,10 +119,12 @@ trail** (tamper-evident: recompute the chain and any change breaks the links).
 | GET    | `/agent/conversations/{id}/audit` | Hash-chained audit records                             |
 | WS     | `/agent/ws`                       | Streaming turns (used by both frontends)               |
 
-It runs with **no API key** today — a deterministic rule-based model stands in for GPT-4
-behind the `LanguageModel` port (swap it, and nothing else changes). Tool execution and
-customer context are simulated in-memory; wiring them to the Phase 1 API is the next
-integration step.
+The `LanguageModel` port has two adapters: an **OpenAI** model (used when `OPENAI_API_KEY`
+is set — `OPENAI_MODEL` defaults to `gpt-4o`) and a deterministic **rule-based** stand-in
+used otherwise, so the agent runs with or without a key and swapping the model changes
+nothing else. The model only classifies intent and fills slots; on any LLM/parse error it
+degrades safely to the rule-based path. Tool execution and customer context are simulated
+in-memory; wiring them to the Phase 1 API is the next integration step.
 
 ```bash
 # with the stack up, drive one turn:
@@ -126,13 +141,15 @@ committed).
 - **Phase 0 — Foundations** ✅ monorepo, hexagonal skeleton, Docker, CI.
 - **Phase 1 — Core backend & domain** ✅ customer/account/card/statement/servicing/
   notification domains, JWT auth, self-transfer, card freeze, servicing requests,
-  notification search, OpenAPI. Persistence is seeded in-memory behind repository
-  ports (Postgres/Mongo adapters slot in without touching domain or HTTP).
+  notification search, OpenAPI. Now persisted to **PostgreSQL via Prisma** behind the
+  repository ports, with a seeded in-memory fallback for tests/offline dev.
 - **Phase 2 — Conversational agent & policy engine** ✅ hexagonal agent pipeline
   (injection guard → classify → slot-fill → deterministic policy → confirm → execute →
   audit → explain), versioned policy rules, hash-chained audit, FastAPI + WebSocket.
-  Rule-based LLM stand-in (swap for GPT-4) and in-memory tools/context.
-- **Phase 3 / 4 — Customer app & auditor console** — next.
+  **OpenAI (gpt-4o)** adapter behind the `LanguageModel` port with a rule-based fallback.
+- **Phase 3 — Customer app** ✅ Expo/React Native app (login, home, cards, AI chat,
+  settings) running against the live API + agent; also runs on web in the browser.
+- **Phase 4 — Auditor console** — next.
 
 ## Tech stack
 
