@@ -2,8 +2,8 @@
 
 A conversational card-servicing platform: a **customer mobile app**, a **bank auditor
 console**, and an **LLM agent gated by a deterministic policy engine** — with a
-hash-chained audit trail for every action. The LLM handles the conversation; policy
-makes every decision.
+hash-chained audit trail behind every action. The LLM handles the conversation; the
+policy engine makes every decision.
 
 ## Monorepo layout
 
