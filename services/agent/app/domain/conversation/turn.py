@@ -33,6 +33,9 @@ class ConversationState:
     pending_action: ServicingType | None = None
     slots: dict[str, object] = field(default_factory=dict)
     messages: list[Message] = field(default_factory=list)
+    # Inter-agent shared state / working memory (routing hints, last specialist,
+    # durable facts). Volatile financial values are never cached here.
+    shared: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

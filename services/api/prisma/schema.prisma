@@ -44,6 +44,11 @@ enum ServicingStatus {
   escalated
 }
 
+enum TransactionDirection {
+  debit
+  credit
+}
+
 model Customer {
   id           String    @id
   fullName     String
@@ -54,11 +59,13 @@ model Customer {
   kycPanMasked String
   kycAadhaar   String
   kycStatus    KycStatus @default(verified)
+  creditScore  Int       @default(750)
 
   accounts          Account[]
   cards             Card[]
   servicingRequests ServicingRequest[]
   notifications     Notification[]
+  transactions      Transaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -89,8 +96,12 @@ model Card {
   holderName           String
   expiry               String
   status               CardStatus @default(active)
+  tier                 String     @default("Classic")
   availableLimitMinor  Int?
   availableBalanceMinor Int?
+  domesticLimitMinor       Int?
+  internationalLimitMinor  Int?
+  internationalEnabled     Boolean @default(false)
   currency             String     @default("INR")
 
   customer   Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
@@ -161,4 +172,24 @@ model Notification {
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([customerId])
+}
+
+model Transaction {
+  id               String               @id
+  customerId       String
+  accountId        String
+  cardId           String?
+  direction        TransactionDirection
+  amountMinor      Int
+  currency         String               @default("INR")
+  category         String
+  description      String
+  counterparty     String?
+  balanceAfterMinor Int
+  createdAt        DateTime             @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([accountId])
 }

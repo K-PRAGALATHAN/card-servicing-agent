@@ -12,4 +12,10 @@ export function registerProfileRoutes(
     { preHandler: auth, schema: { tags: ["customer"], summary: "Get my profile (incl. KYC)" } },
     async (request) => c.getProfile.execute(request.customerId),
   );
+
+  app.get(
+    "/credit-score",
+    { preHandler: auth, schema: { tags: ["customer"], summary: "My CIBIL-style credit score" } },
+    async (request) => c.getCreditScore.execute(request.customerId),
+  );
 }

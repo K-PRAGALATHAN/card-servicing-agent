@@ -7,10 +7,15 @@ dependencies = [
   "fastapi>=0.115",
   "uvicorn[standard]>=0.32",
   "pydantic>=2.9",
-  # LLM adapters — only the one matching the configured API key is imported.
-  # anthropic>=0.75 is the floor for output_config (structured outputs).
-  "anthropic>=0.75",
+  "python-multipart>=0.0.9",  # voice upload (multipart)
+  "httpx>=0.28",              # policy-context calls to the Node API
+  # OpenRouter is OpenAI-compatible — one SDK for chat, STT, and TTS.
   "openai>=1.50",
+  # Multi-agent tool layer + durable sessions + shared-secret auth.
+  # Pinned to the 1.x line (stable FastMCP API); 2.0 reworked the module layout.
+  "mcp>=1.9,<2",
+  "pymongo>=4.9",
+  "pyjwt>=2.9",
 ]
 
 [project.optional-dependencies]

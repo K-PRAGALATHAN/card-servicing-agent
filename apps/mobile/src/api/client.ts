@@ -1,5 +1,20 @@
 import { AGENT_BASE, API_BASE } from "../config";
-import type { Account, AgentTurn, AuthTokens, Card, Notification, Profile } from "./types";
+import type {
+  Account,
+  AgentTurn,
+  AuthTokens,
+  Card,
+  CreditScore,
+  Notification,
+  PaymentReceipt,
+  Profile,
+  ServicingRequest,
+  Statement,
+  Transaction,
+  TransferReceipt,
+  UpgradeOffer,
+  UpgradeReceipt,
+} from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -60,15 +75,112 @@ export const api = {
     });
   },
 
+  transfer(
+    token: string,
+    body: { fromAccountId: string; toAccountId: string; amountMinor: number; note?: string },
+  ): Promise<TransferReceipt> {
+    return request(API_BASE, "/accounts/transfer", { method: "POST", token, body });
+  },
+
+  payBill(
+    token: string,
+    body: {
+      fromAccountId: string;
+      category: "bill" | "recharge";
+      biller: string;
+      reference?: string;
+      amountMinor: number;
+    },
+  ): Promise<PaymentReceipt> {
+    return request(API_BASE, "/payments/pay", { method: "POST", token, body });
+  },
+
+  getTransactions(token: string, limit = 30): Promise<Transaction[]> {
+    return request(API_BASE, `/transactions?limit=${limit}`, { token });
+  },
+
+  setCardLimits(
+    token: string,
+    cardId: string,
+    body: {
+      domesticLimitMinor?: number;
+      internationalLimitMinor?: number;
+      internationalEnabled?: boolean;
+    },
+  ): Promise<Card> {
+    return request(API_BASE, `/cards/${cardId}/limits`, { method: "POST", token, body });
+  },
+
+  resetCardPin(
+    token: string,
+    cardId: string,
+    pin: string,
+  ): Promise<{ cardId: string; message: string }> {
+    return request(API_BASE, `/cards/${cardId}/reset-pin`, {
+      method: "POST",
+      token,
+      body: { pin },
+    });
+  },
+
+  getUpgradeOffers(token: string): Promise<UpgradeOffer[]> {
+    return request(API_BASE, "/cards/upgrade-offers", { token });
+  },
+
+  upgradeCard(
+    token: string,
+    cardId: string,
+    body: { tier: "Platinum" | "Millennia" | "Business"; fromAccountId: string },
+  ): Promise<UpgradeReceipt> {
+    return request(API_BASE, `/cards/${cardId}/upgrade`, { method: "POST", token, body });
+  },
+
+  getCreditScore(token: string): Promise<CreditScore> {
+    return request(API_BASE, "/credit-score", { token });
+  },
+
+  getStatement(token: string, cardId: string): Promise<Statement> {
+    return request(API_BASE, `/cards/${cardId}/statement`, { token });
+  },
+
+  raiseDispute(token: string, cardId: string): Promise<ServicingRequest> {
+    return request(API_BASE, `/cards/${cardId}/dispute`, { method: "POST", token });
+  },
+
+  reportFraud(token: string, cardId: string): Promise<ServicingRequest> {
+    return request(API_BASE, `/cards/${cardId}/report-fraud`, { method: "POST", token });
+  },
+
   getNotifications(token: string): Promise<Notification[]> {
     return request(API_BASE, "/notifications", { token });
   },
 
-  agentMessage(customerId: string, text: string, conversationId?: string): Promise<AgentTurn> {
+  agentMessage(token: string, text: string, conversationId?: string): Promise<AgentTurn> {
     return request(AGENT_BASE, "/agent/message", {
       method: "POST",
-      body: { customer_id: customerId, text, conversation_id: conversationId },
+      token,
+      body: { text, conversation_id: conversationId },
     });
+  },
+
+  async agentVoice(token: string, audio: Blob, conversationId?: string): Promise<AgentTurn> {
+    const form = new FormData();
+    form.append("audio", audio, "speech.webm");
+    if (conversationId) form.append("conversation_id", conversationId);
+    const response = await fetch(`${AGENT_BASE}/agent/voice`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+      body: form,
+    });
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : null;
+    if (!response.ok) {
+      throw new ApiError(
+        (data && data.detail) || `Voice failed (${response.status})`,
+        response.status,
+      );
+    }
+    return data as AgentTurn;
   },
 };
 

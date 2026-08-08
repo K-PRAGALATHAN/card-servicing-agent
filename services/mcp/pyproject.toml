@@ -1,0 +1,15 @@
+[project]
+name = "card-servicing-mcp"
+version = "0.1.0"
+description = "MCP servers (Accounts, Transactions, Servicing) fronting the card-servicing API."
+requires-python = ">=3.11"
+dependencies = [
+  # Pinned to the 1.x line (stable FastMCP API); 2.0 reworked the module layout.
+  "mcp>=1.9,<2",
+  "httpx>=0.28",
+  "uvicorn[standard]>=0.32",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

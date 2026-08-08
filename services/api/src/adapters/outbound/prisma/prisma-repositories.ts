@@ -18,6 +18,12 @@ import type { ServicingRequestRepository } from "../../../domain/servicing/servi
 import type { Statement } from "../../../domain/statement/statement";
 import type { StatementProvider } from "../../../domain/statement/statement.provider";
 import { type Currency, type Money, money } from "../../../domain/shared/money";
+import type {
+  Transaction,
+  TransactionCategory,
+  TransactionDirection,
+} from "../../../domain/transaction/transaction";
+import type { TransactionRepository } from "../../../domain/transaction/transaction.repository";
 
 function toMoney(minor: number, currency: string): Money {
   return money(minor, currency as Currency);
@@ -41,6 +47,7 @@ export class PrismaCustomerRepository implements CustomerRepository {
         aadhaarMasked: row.kycAadhaar,
         status: row.kycStatus,
       },
+      creditScore: row.creditScore,
     };
   }
 }
@@ -107,8 +114,12 @@ export class PrismaCardRepository implements CardRepository {
   async save(card: Card): Promise<void> {
     const data = {
       status: card.status,
+      tier: card.tier,
       availableLimitMinor: card.availableLimit?.amountMinor ?? null,
       availableBalanceMinor: card.availableBalance?.amountMinor ?? null,
+      domesticLimitMinor: card.domesticLimit?.amountMinor ?? null,
+      internationalLimitMinor: card.internationalLimit?.amountMinor ?? null,
+      internationalEnabled: card.internationalEnabled,
     };
     await this.prisma.card.upsert({
       where: { id: card.id },
@@ -136,8 +147,12 @@ export class PrismaCardRepository implements CardRepository {
     holderName: string;
     expiry: string;
     status: "active" | "frozen" | "blocked";
+    tier: string;
     availableLimitMinor: number | null;
     availableBalanceMinor: number | null;
+    domesticLimitMinor: number | null;
+    internationalLimitMinor: number | null;
+    internationalEnabled: boolean;
     currency: string;
   }): Card {
     return {
@@ -149,10 +164,18 @@ export class PrismaCardRepository implements CardRepository {
       holderName: r.holderName,
       expiry: r.expiry,
       status: r.status,
+      tier: r.tier as Card["tier"],
       availableLimit:
         r.availableLimitMinor != null ? toMoney(r.availableLimitMinor, r.currency) : undefined,
       availableBalance:
         r.availableBalanceMinor != null ? toMoney(r.availableBalanceMinor, r.currency) : undefined,
+      domesticLimit:
+        r.domesticLimitMinor != null ? toMoney(r.domesticLimitMinor, r.currency) : undefined,
+      internationalLimit:
+        r.internationalLimitMinor != null
+          ? toMoney(r.internationalLimitMinor, r.currency)
+          : undefined,
+      internationalEnabled: r.internationalEnabled,
     };
   }
 }
@@ -303,6 +326,76 @@ export class PrismaNotificationRepository implements NotificationRepository {
       body: r.body,
       category: r.category as NotificationCategory,
       read: r.read,
+      createdAt: r.createdAt.toISOString(),
+    };
+  }
+}
+
+export class PrismaTransactionRepository implements TransactionRepository {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async add(t: Transaction): Promise<void> {
+    await this.prisma.transaction.create({
+      data: {
+        id: t.id,
+        customerId: t.customerId,
+        accountId: t.accountId,
+        cardId: t.cardId ?? null,
+        direction: t.direction,
+        amountMinor: t.amount.amountMinor,
+        currency: t.amount.currency,
+        category: t.category,
+        description: t.description,
+        counterparty: t.counterparty ?? null,
+        balanceAfterMinor: t.balanceAfter.amountMinor,
+        createdAt: new Date(t.createdAt),
+      },
+    });
+  }
+
+  async listByCustomer(customerId: string, limit = 30): Promise<Transaction[]> {
+    const rows = await this.prisma.transaction.findMany({
+      where: { customerId },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+    return rows.map((r) => this.map(r));
+  }
+
+  async listByAccount(accountId: string, limit = 30): Promise<Transaction[]> {
+    const rows = await this.prisma.transaction.findMany({
+      where: { accountId },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+    return rows.map((r) => this.map(r));
+  }
+
+  private map(r: {
+    id: string;
+    customerId: string;
+    accountId: string;
+    cardId: string | null;
+    direction: "debit" | "credit";
+    amountMinor: number;
+    currency: string;
+    category: string;
+    description: string;
+    counterparty: string | null;
+    balanceAfterMinor: number;
+    createdAt: Date;
+  }): Transaction {
+    return {
+      id: r.id,
+      customerId: r.customerId,
+      accountId: r.accountId,
+      cardId: r.cardId ?? undefined,
+      direction: r.direction as TransactionDirection,
+      amount: toMoney(r.amountMinor, r.currency),
+      category: r.category as TransactionCategory,
+      description: r.description,
+      counterparty: r.counterparty ?? undefined,
+      balanceAfter: toMoney(r.balanceAfterMinor, r.currency),
       createdAt: r.createdAt.toISOString(),
     };
   }

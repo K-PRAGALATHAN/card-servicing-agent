@@ -13,4 +13,6 @@ export interface Customer {
   /** scrypt hash; never leaves the domain/adapters boundary. */
   readonly passwordHash: string;
   readonly kyc: KycDetails;
+  /** CIBIL-style score (300–900). */
+  readonly creditScore: number;
 }

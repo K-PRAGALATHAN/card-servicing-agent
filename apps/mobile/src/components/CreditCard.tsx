@@ -18,6 +18,7 @@ export function CreditCard({ card }: { card: Card }): React.JSX.Element {
           <Text style={styles.badgeText}>{card.status}</Text>
         </View>
       </View>
+      {card.tier && card.tier !== "Classic" ? <Text style={styles.tier}>✦ {card.tier}</Text> : null}
       <View style={styles.chip} />
       <Text style={styles.pan}>{card.maskedPan}</Text>
       <View style={styles.bottomRow}>
@@ -43,6 +44,7 @@ const styles = StyleSheet.create({
   },
   badgeMuted: { backgroundColor: "rgba(0,0,0,0.25)" },
   badgeText: { color: colors.white, fontSize: 11, fontWeight: "600", textTransform: "capitalize" },
+  tier: { color: colors.gold, fontSize: 12, fontWeight: "700", letterSpacing: 0.5, marginTop: 6 },
   chip: {
     width: 34,
     height: 24,

@@ -10,6 +10,8 @@ import type { ServicingRequest } from "../../../domain/servicing/servicing-reque
 import type { ServicingRequestRepository } from "../../../domain/servicing/servicing-request.repository";
 import type { Statement } from "../../../domain/statement/statement";
 import type { StatementProvider } from "../../../domain/statement/statement.provider";
+import type { Transaction } from "../../../domain/transaction/transaction";
+import type { TransactionRepository } from "../../../domain/transaction/transaction.repository";
 
 export class InMemoryCustomerRepository implements CustomerRepository {
   constructor(private readonly byId: Map<string, Customer>) {}
@@ -65,6 +67,25 @@ export class InMemoryServicingRequestRepository implements ServicingRequestRepos
   }
   async findById(id: string): Promise<ServicingRequest | null> {
     return this.byId.get(id) ?? null;
+  }
+}
+
+export class InMemoryTransactionRepository implements TransactionRepository {
+  constructor(private readonly items: Transaction[] = []) {}
+  async add(transaction: Transaction): Promise<void> {
+    this.items.push(transaction);
+  }
+  async listByCustomer(customerId: string, limit = 30): Promise<Transaction[]> {
+    return this.sorted((t) => t.customerId === customerId, limit);
+  }
+  async listByAccount(accountId: string, limit = 30): Promise<Transaction[]> {
+    return this.sorted((t) => t.accountId === accountId, limit);
+  }
+  private sorted(match: (t: Transaction) => boolean, limit: number): Transaction[] {
+    return this.items
+      .filter(match)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit);
   }
 }
 

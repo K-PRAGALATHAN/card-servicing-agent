@@ -5,6 +5,7 @@ import type { Customer } from "../../../domain/customer/customer";
 import type { Notification } from "../../../domain/notification/notification";
 import type { Statement } from "../../../domain/statement/statement";
 import { money } from "../../../domain/shared/money";
+import type { Transaction } from "../../../domain/transaction/transaction";
 
 export interface SeededData {
   readonly customers: Map<string, Customer>;
@@ -12,6 +13,7 @@ export interface SeededData {
   readonly cards: Map<string, Card>;
   readonly statements: Map<string, Statement[]>;
   readonly notifications: Notification[];
+  readonly transactions: Transaction[];
 }
 
 /** Demo credentials (matches the mobile wireframe's Klaus Crawley). */
@@ -29,6 +31,7 @@ export async function buildSeed(hasher: PasswordHasher): Promise<SeededData> {
     address: "San Francisco, United States",
     passwordHash,
     kyc: { panMasked: "•••••1234F", aadhaarMasked: "•••• •••• 8821", status: "verified" },
+    creditScore: 782,
   };
 
   const savings: Account = {
@@ -55,7 +58,11 @@ export async function buildSeed(hasher: PasswordHasher): Promise<SeededData> {
     holderName: "KLAUS CRAWLEY",
     expiry: "12/28",
     status: "active",
+    tier: "Classic",
     availableLimit: money(18_000_000), // ₹1,80,000
+    domesticLimit: money(10_000_000), // ₹1,00,000
+    internationalLimit: money(0),
+    internationalEnabled: false,
   };
   const debitCard: Card = {
     id: "card_debit_1",
@@ -66,7 +73,11 @@ export async function buildSeed(hasher: PasswordHasher): Promise<SeededData> {
     holderName: "KLAUS CRAWLEY",
     expiry: "09/27",
     status: "active",
+    tier: "Classic",
     availableBalance: money(24_890_560),
+    domesticLimit: money(5_000_000), // ₹50,000
+    internationalLimit: money(0),
+    internationalEnabled: false,
   };
 
   const creditStatement: Statement = {
@@ -118,6 +129,8 @@ export async function buildSeed(hasher: PasswordHasher): Promise<SeededData> {
     },
   ];
 
+  const transactions: Transaction[] = buildSeedTransactions(savings, salary);
+
   return {
     customers: new Map([[customer.id, customer]]),
     accounts: new Map([
@@ -130,5 +143,69 @@ export async function buildSeed(hasher: PasswordHasher): Promise<SeededData> {
     ]),
     statements: new Map([[creditCard.id, [creditStatement]]]),
     notifications,
+    transactions,
   };
+}
+
+/** A believable recent history so the ledger isn't empty on first run. */
+function buildSeedTransactions(savings: Account, salary: Account): Transaction[] {
+  const c = savings.customerId;
+  const rows: Omit<Transaction, "id">[] = [
+    {
+      customerId: c,
+      accountId: salary.id,
+      direction: "credit",
+      amount: money(15_000_000),
+      category: "transfer",
+      description: "Salary credit — Acme Corp",
+      counterparty: "Acme Corp",
+      balanceAfter: money(5_320_000),
+      createdAt: "2026-07-31T04:30:00.000Z",
+    },
+    {
+      customerId: c,
+      accountId: savings.id,
+      direction: "debit",
+      amount: money(129_900),
+      category: "recharge",
+      description: "Mobile recharge · 98•••398",
+      counterparty: "Mobile recharge",
+      balanceAfter: money(24_890_560),
+      createdAt: "2026-07-30T13:12:00.000Z",
+    },
+    {
+      customerId: c,
+      accountId: savings.id,
+      direction: "debit",
+      amount: money(184_500),
+      category: "bill",
+      description: "Electricity · BESCOM",
+      counterparty: "Electricity",
+      balanceAfter: money(25_020_460),
+      createdAt: "2026-07-28T08:45:00.000Z",
+    },
+    {
+      customerId: c,
+      accountId: savings.id,
+      direction: "debit",
+      amount: money(64_900),
+      category: "purchase",
+      description: "Swiggy order",
+      counterparty: "Swiggy",
+      balanceAfter: money(25_204_960),
+      createdAt: "2026-07-27T20:03:00.000Z",
+    },
+    {
+      customerId: c,
+      accountId: savings.id,
+      direction: "credit",
+      amount: money(120_000),
+      category: "refund",
+      description: "Refund — Flipkart",
+      counterparty: "Flipkart",
+      balanceAfter: money(25_269_860),
+      createdAt: "2026-07-25T11:20:00.000Z",
+    },
+  ];
+  return rows.map((r, i) => ({ ...r, id: `txn_seed_${i + 1}` }));
 }

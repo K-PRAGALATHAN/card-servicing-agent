@@ -15,6 +15,8 @@ function card(overrides: Partial<Card> = {}): Card {
     holderName: "A",
     expiry: "12/28",
     status: "active",
+    tier: "Classic",
+    internationalEnabled: false,
     ...overrides,
   };
 }

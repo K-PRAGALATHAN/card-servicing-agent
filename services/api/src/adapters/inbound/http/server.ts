@@ -10,10 +10,12 @@ import { registerCardRoutes } from "./card.routes";
 import { registerErrorHandler } from "./error-handler";
 import { registerHealthRoutes } from "./health.routes";
 import { registerNotificationRoutes } from "./notification.routes";
+import { registerPaymentRoutes } from "./payment.routes";
 import { makeAuthGuard } from "./plugins/auth";
 import { registerProfileRoutes } from "./profile.routes";
 import { registerServicingRoutes } from "./servicing.routes";
 import { registerStatementRoutes } from "./statement.routes";
+import { registerTransactionRoutes } from "./transaction.routes";
 
 /**
  * HTTP composition root: OpenAPI, error handling, auth guard, and all routes.
@@ -32,6 +34,8 @@ export async function buildServer(container: AppContainer): Promise<FastifyInsta
         { name: "auth" },
         { name: "customer" },
         { name: "accounts" },
+        { name: "payments" },
+        { name: "transactions" },
         { name: "cards" },
         { name: "statements" },
         { name: "servicing" },
@@ -56,6 +60,8 @@ export async function buildServer(container: AppContainer): Promise<FastifyInsta
   registerAuthRoutes(app, container);
   registerProfileRoutes(app, container, auth);
   registerAccountRoutes(app, container, auth);
+  registerPaymentRoutes(app, container, auth);
+  registerTransactionRoutes(app, container, auth);
   registerCardRoutes(app, container, auth);
   registerStatementRoutes(app, container, auth);
   registerServicingRoutes(app, container, auth);

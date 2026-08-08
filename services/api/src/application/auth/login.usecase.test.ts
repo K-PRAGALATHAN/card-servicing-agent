@@ -18,6 +18,7 @@ async function setup(): Promise<LoginUseCase> {
     address: "y",
     passwordHash,
     kyc: { panMasked: "", aadhaarMasked: "", status: "verified" },
+    creditScore: 750,
   };
   const customers = new InMemoryCustomerRepository(new Map([[customer.id, customer]]));
   const tokens = new JoseTokenService({ secret: "t", accessTtl: "5m", refreshTtl: "1d" });

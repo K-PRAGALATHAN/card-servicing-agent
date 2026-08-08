@@ -12,7 +12,7 @@ async function main(): Promise<void> {
 
   await prisma.customer.upsert({
     where: { id: CUSTOMER_ID },
-    update: { passwordHash },
+    update: { passwordHash, creditScore: 782 },
     create: {
       id: CUSTOMER_ID,
       fullName: "Klaus Crawley",
@@ -23,6 +23,7 @@ async function main(): Promise<void> {
       kycPanMasked: "•••••1234F",
       kycAadhaar: "•••• •••• 8821",
       kycStatus: "verified",
+      creditScore: 782,
     },
   });
 
@@ -50,7 +51,11 @@ async function main(): Promise<void> {
       holderName: "KLAUS CRAWLEY",
       expiry: "12/28",
       status: "active",
+      tier: "Classic",
       availableLimitMinor: 18_000_000,
+      domesticLimitMinor: 10_000_000,
+      internationalLimitMinor: 0,
+      internationalEnabled: false,
     },
   });
   await prisma.card.upsert({
@@ -65,7 +70,11 @@ async function main(): Promise<void> {
       holderName: "KLAUS CRAWLEY",
       expiry: "09/27",
       status: "active",
+      tier: "Classic",
       availableBalanceMinor: 24_890_560,
+      domesticLimitMinor: 5_000_000,
+      internationalLimitMinor: 0,
+      internationalEnabled: false,
     },
   });
 
@@ -141,6 +150,73 @@ async function main(): Promise<void> {
       create: { ...n, customerId: CUSTOMER_ID },
     });
   }
+
+  // Recent ledger history so the app isn't empty on first run (idempotent reset).
+  await prisma.transaction.deleteMany({ where: { id: { startsWith: "txn_seed_" } } });
+  await prisma.transaction.createMany({
+    data: [
+      {
+        id: "txn_seed_1",
+        customerId: CUSTOMER_ID,
+        accountId: "acc_salary_1",
+        direction: "credit",
+        amountMinor: 15_000_000,
+        category: "transfer",
+        description: "Salary credit — Acme Corp",
+        counterparty: "Acme Corp",
+        balanceAfterMinor: 5_320_000,
+        createdAt: new Date("2026-07-31T04:30:00.000Z"),
+      },
+      {
+        id: "txn_seed_2",
+        customerId: CUSTOMER_ID,
+        accountId: "acc_savings_1",
+        direction: "debit",
+        amountMinor: 129_900,
+        category: "recharge",
+        description: "Mobile recharge · 98•••398",
+        counterparty: "Mobile recharge",
+        balanceAfterMinor: 24_890_560,
+        createdAt: new Date("2026-07-30T13:12:00.000Z"),
+      },
+      {
+        id: "txn_seed_3",
+        customerId: CUSTOMER_ID,
+        accountId: "acc_savings_1",
+        direction: "debit",
+        amountMinor: 184_500,
+        category: "bill",
+        description: "Electricity · BESCOM",
+        counterparty: "Electricity",
+        balanceAfterMinor: 25_020_460,
+        createdAt: new Date("2026-07-28T08:45:00.000Z"),
+      },
+      {
+        id: "txn_seed_4",
+        customerId: CUSTOMER_ID,
+        accountId: "acc_savings_1",
+        direction: "debit",
+        amountMinor: 64_900,
+        category: "purchase",
+        description: "Swiggy order",
+        counterparty: "Swiggy",
+        balanceAfterMinor: 25_204_960,
+        createdAt: new Date("2026-07-27T20:03:00.000Z"),
+      },
+      {
+        id: "txn_seed_5",
+        customerId: CUSTOMER_ID,
+        accountId: "acc_savings_1",
+        direction: "credit",
+        amountMinor: 120_000,
+        category: "refund",
+        description: "Refund — Flipkart",
+        counterparty: "Flipkart",
+        balanceAfterMinor: 25_269_860,
+        createdAt: new Date("2026-07-25T11:20:00.000Z"),
+      },
+    ],
+  });
 
   console.log(`Seed complete: customer ${CUSTOMER_ID}`);
 }

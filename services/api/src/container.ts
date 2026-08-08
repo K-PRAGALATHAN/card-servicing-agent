@@ -4,14 +4,23 @@ import { ListAccountsUseCase } from "./application/account/list-accounts.usecase
 import { SelfTransferUseCase } from "./application/account/self-transfer.usecase";
 import { GetCardUseCase } from "./application/card/get-card.usecase";
 import { ListCardsUseCase } from "./application/card/list-cards.usecase";
+import { ModifyCreditLimitUseCase } from "./application/card/modify-credit-limit.usecase";
+import { ReplaceCardUseCase } from "./application/card/replace-card.usecase";
+import { ResetCardPinUseCase } from "./application/card/reset-card-pin.usecase";
+import { ReverseFeeUseCase } from "./application/card/reverse-fee.usecase";
 import { SetCardFrozenUseCase } from "./application/card/set-card-frozen.usecase";
+import { SetCardLimitsUseCase } from "./application/card/set-card-limits.usecase";
+import { UpgradeCardUseCase } from "./application/card/upgrade-card.usecase";
+import { GetCreditScoreUseCase } from "./application/customer/get-credit-score.usecase";
 import { GetProfileUseCase } from "./application/customer/get-profile.usecase";
 import { GetHealthUseCase } from "./application/health/get-health.usecase";
 import { ListNotificationsUseCase } from "./application/notification/list-notifications.usecase";
 import { SearchNotificationsUseCase } from "./application/notification/search-notifications.usecase";
+import { PayBillUseCase } from "./application/payment/pay-bill.usecase";
 import { CreateServicingRequestUseCase } from "./application/servicing/create-servicing-request.usecase";
 import { ListServicingRequestsUseCase } from "./application/servicing/list-servicing-requests.usecase";
 import { GetStatementUseCase } from "./application/statement/get-statement.usecase";
+import { ListTransactionsUseCase } from "./application/transaction/list-transactions.usecase";
 import { SystemHealthAdapter } from "./adapters/outbound/health/system-health.adapter";
 import {
   InMemoryAccountRepository,
@@ -20,6 +29,7 @@ import {
   InMemoryNotificationRepository,
   InMemoryServicingRequestRepository,
   InMemoryStatementProvider,
+  InMemoryTransactionRepository,
 } from "./adapters/outbound/memory/in-memory-repositories";
 import { buildSeed } from "./adapters/outbound/memory/seed";
 import { JoseTokenService } from "./adapters/outbound/security/jose-token.service";
@@ -30,6 +40,7 @@ import type { CustomerRepository } from "./domain/customer/customer.repository";
 import type { NotificationRepository } from "./domain/notification/notification.repository";
 import type { ServicingRequestRepository } from "./domain/servicing/servicing-request.repository";
 import type { StatementProvider } from "./domain/statement/statement.provider";
+import type { TransactionRepository } from "./domain/transaction/transaction.repository";
 import type { AppConfig } from "./config/env";
 
 interface Repositories {
@@ -39,6 +50,7 @@ interface Repositories {
   statements: StatementProvider;
   servicing: ServicingRequestRepository;
   notifications: NotificationRepository;
+  transactions: TransactionRepository;
 }
 
 /** Postgres (Prisma) when DATABASE_URL is set; seeded in-memory otherwise. */
@@ -54,6 +66,7 @@ async function buildRepositories(config: AppConfig): Promise<Repositories> {
       statements: new prisma.PrismaStatementProvider(client),
       servicing: new prisma.PrismaServicingRequestRepository(client),
       notifications: new prisma.PrismaNotificationRepository(client),
+      transactions: new prisma.PrismaTransactionRepository(client),
     };
   }
 
@@ -65,6 +78,7 @@ async function buildRepositories(config: AppConfig): Promise<Repositories> {
     statements: new InMemoryStatementProvider(seed.statements),
     servicing: new InMemoryServicingRequestRepository(),
     notifications: new InMemoryNotificationRepository(seed.notifications),
+    transactions: new InMemoryTransactionRepository(seed.transactions),
   };
 }
 
@@ -73,11 +87,20 @@ export interface AppContainer {
   readonly tokenService: TokenService;
   readonly login: LoginUseCase;
   readonly getProfile: GetProfileUseCase;
+  readonly getCreditScore: GetCreditScoreUseCase;
   readonly listAccounts: ListAccountsUseCase;
   readonly selfTransfer: SelfTransferUseCase;
+  readonly payBill: PayBillUseCase;
+  readonly listTransactions: ListTransactionsUseCase;
   readonly listCards: ListCardsUseCase;
   readonly getCard: GetCardUseCase;
   readonly setCardFrozen: SetCardFrozenUseCase;
+  readonly setCardLimits: SetCardLimitsUseCase;
+  readonly resetCardPin: ResetCardPinUseCase;
+  readonly upgradeCard: UpgradeCardUseCase;
+  readonly reverseFee: ReverseFeeUseCase;
+  readonly modifyCreditLimit: ModifyCreditLimitUseCase;
+  readonly replaceCard: ReplaceCardUseCase;
   readonly getStatement: GetStatementUseCase;
   readonly createServicingRequest: CreateServicingRequestUseCase;
   readonly listServicingRequests: ListServicingRequestsUseCase;
@@ -93,7 +116,7 @@ export interface AppContainer {
  */
 export async function buildContainer(config: AppConfig): Promise<AppContainer> {
   const hasher = new ScryptPasswordHasher();
-  const { customers, accounts, cards, statements, servicing, notifications } =
+  const { customers, accounts, cards, statements, servicing, notifications, transactions } =
     await buildRepositories(config);
 
   const tokenService = new JoseTokenService({
@@ -106,11 +129,20 @@ export async function buildContainer(config: AppConfig): Promise<AppContainer> {
     tokenService,
     login: new LoginUseCase(customers, hasher, tokenService),
     getProfile: new GetProfileUseCase(customers),
+    getCreditScore: new GetCreditScoreUseCase(customers),
     listAccounts: new ListAccountsUseCase(accounts),
-    selfTransfer: new SelfTransferUseCase(accounts),
+    selfTransfer: new SelfTransferUseCase(accounts, transactions),
+    payBill: new PayBillUseCase(accounts, transactions),
+    listTransactions: new ListTransactionsUseCase(transactions),
     listCards: new ListCardsUseCase(cards),
     getCard: new GetCardUseCase(cards),
     setCardFrozen: new SetCardFrozenUseCase(cards),
+    setCardLimits: new SetCardLimitsUseCase(cards),
+    resetCardPin: new ResetCardPinUseCase(cards),
+    upgradeCard: new UpgradeCardUseCase(cards, accounts, transactions),
+    reverseFee: new ReverseFeeUseCase(cards, accounts, transactions, servicing),
+    modifyCreditLimit: new ModifyCreditLimitUseCase(cards, servicing),
+    replaceCard: new ReplaceCardUseCase(cards, servicing),
     getStatement: new GetStatementUseCase(cards, statements),
     createServicingRequest: new CreateServicingRequestUseCase(servicing),
     listServicingRequests: new ListServicingRequestsUseCase(servicing),

@@ -27,6 +27,7 @@ export function registerAccountRoutes(
             fromAccountId: { type: "string" },
             toAccountId: { type: "string" },
             amountMinor: { type: "integer", minimum: 1 },
+            note: { type: "string" },
           },
         },
       },
@@ -36,6 +37,7 @@ export function registerAccountRoutes(
         fromAccountId: string;
         toAccountId: string;
         amountMinor: number;
+        note?: string;
       };
       return c.selfTransfer.execute({ customerId: request.customerId, ...body });
     },
