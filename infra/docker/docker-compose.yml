@@ -53,6 +53,14 @@ services:
     environment:
       APP_ENV: development
       AGENT_PORT: "8000"
+      # LLM provider precedence: Anthropic > OpenAI > deterministic rule-based.
+      # Both empty falls back to the rule-based model (no external calls).
+      # NOTE: compose reads .env relative to THIS file's directory, so pass the
+      # repo-root env explicitly: docker compose --env-file .env -f infra/docker/...
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
     ports:
       - "8000:8000"
     depends_on:

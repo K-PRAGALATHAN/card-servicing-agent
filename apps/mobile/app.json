@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Card Servicing",
+    "slug": "card-servicing-mobile",
+    "scheme": "cardservicing",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#F2F4F7",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.card.servicing"
+    }
+  }
+}

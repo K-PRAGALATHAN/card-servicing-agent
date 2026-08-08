@@ -1,0 +1,164 @@
+// Card Servicing — Postgres schema (Prisma).
+// Money is stored in the minor unit (paise) as Int, mirroring the domain model.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountType {
+  savings
+  current
+}
+
+enum CardType {
+  credit
+  debit
+}
+
+enum CardStatus {
+  active
+  frozen
+  blocked
+}
+
+enum KycStatus {
+  verified
+  pending
+}
+
+enum StatementLineKind {
+  debit
+  credit
+}
+
+enum ServicingStatus {
+  pending
+  in_review
+  approved
+  denied
+  escalated
+}
+
+model Customer {
+  id           String    @id
+  fullName     String
+  email        String    @unique
+  phone        String
+  address      String
+  passwordHash String
+  kycPanMasked String
+  kycAadhaar   String
+  kycStatus    KycStatus @default(verified)
+
+  accounts          Account[]
+  cards             Card[]
+  servicingRequests ServicingRequest[]
+  notifications     Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id           String      @id
+  customerId   String
+  type         AccountType
+  maskedNumber String
+  balanceMinor Int
+  currency     String      @default("INR")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+}
+
+model Card {
+  id                   String     @id
+  customerId           String
+  type                 CardType
+  network              String
+  maskedPan            String
+  holderName           String
+  expiry               String
+  status               CardStatus @default(active)
+  availableLimitMinor  Int?
+  availableBalanceMinor Int?
+  currency             String     @default("INR")
+
+  customer   Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  statements Statement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+}
+
+model Statement {
+  id                 String @id
+  cardId             String
+  periodStart        String
+  periodEnd          String
+  openingBalanceMinor Int
+  closingBalanceMinor Int
+  currency           String @default("INR")
+
+  card  Card            @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  lines StatementLine[]
+
+  createdAt DateTime @default(now())
+
+  @@index([cardId])
+}
+
+model StatementLine {
+  id          String            @id @default(uuid())
+  statementId String
+  date        String
+  description String
+  amountMinor Int
+  currency    String            @default("INR")
+  kind        StatementLineKind
+  position    Int
+
+  statement Statement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+
+  @@index([statementId])
+}
+
+model ServicingRequest {
+  id         String          @id
+  customerId String
+  type       String
+  priority   String
+  status     ServicingStatus @default(pending)
+  cardId     String?
+  details    Json
+  createdAt  DateTime        @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+model Notification {
+  id         String   @id
+  customerId String
+  title      String
+  body       String
+  category   String
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}

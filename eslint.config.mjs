@@ -21,8 +21,8 @@ export default tseslint.config(
     },
   },
   {
-    // CommonJS config files (commitlint.config.cjs, etc.)
-    files: ["**/*.cjs"],
+    // CommonJS config files (commitlint.config.cjs, metro/babel .config.js, etc.)
+    files: ["**/*.cjs", "**/*.config.js"],
     languageOptions: {
       sourceType: "commonjs",
       globals: {
@@ -33,6 +33,9 @@ export default tseslint.config(
         __dirname: "readonly",
         __filename: "readonly",
       },
+    },
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
     },
   },
 );

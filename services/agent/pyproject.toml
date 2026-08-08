@@ -7,6 +7,10 @@ dependencies = [
   "fastapi>=0.115",
   "uvicorn[standard]>=0.32",
   "pydantic>=2.9",
+  # LLM adapters — only the one matching the configured API key is imported.
+  # anthropic>=0.75 is the floor for output_config (structured outputs).
+  "anthropic>=0.75",
+  "openai>=1.50",
 ]
 
 [project.optional-dependencies]

@@ -1,3 +1,4 @@
+import cors from "@fastify/cors";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import Fastify, { type FastifyInstance } from "fastify";
@@ -20,6 +21,9 @@ import { registerStatementRoutes } from "./statement.routes";
  */
 export async function buildServer(container: AppContainer): Promise<FastifyInstance> {
   const app = Fastify({ logger: true });
+
+  // Dev-friendly CORS so the Expo web app (a browser origin) can call the API.
+  await app.register(cors, { origin: true });
 
   await app.register(swagger, {
     openapi: {

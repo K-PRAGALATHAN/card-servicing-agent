@@ -24,7 +24,49 @@ import {
 import { buildSeed } from "./adapters/outbound/memory/seed";
 import { JoseTokenService } from "./adapters/outbound/security/jose-token.service";
 import { ScryptPasswordHasher } from "./adapters/outbound/security/scrypt-password-hasher";
+import type { AccountRepository } from "./domain/account/account.repository";
+import type { CardRepository } from "./domain/card/card.repository";
+import type { CustomerRepository } from "./domain/customer/customer.repository";
+import type { NotificationRepository } from "./domain/notification/notification.repository";
+import type { ServicingRequestRepository } from "./domain/servicing/servicing-request.repository";
+import type { StatementProvider } from "./domain/statement/statement.provider";
 import type { AppConfig } from "./config/env";
+
+interface Repositories {
+  customers: CustomerRepository;
+  accounts: AccountRepository;
+  cards: CardRepository;
+  statements: StatementProvider;
+  servicing: ServicingRequestRepository;
+  notifications: NotificationRepository;
+}
+
+/** Postgres (Prisma) when DATABASE_URL is set; seeded in-memory otherwise. */
+async function buildRepositories(config: AppConfig): Promise<Repositories> {
+  if (config.databaseUrl) {
+    const { getPrismaClient } = await import("./adapters/outbound/prisma/prisma-client");
+    const prisma = await import("./adapters/outbound/prisma/prisma-repositories");
+    const client = getPrismaClient();
+    return {
+      customers: new prisma.PrismaCustomerRepository(client),
+      accounts: new prisma.PrismaAccountRepository(client),
+      cards: new prisma.PrismaCardRepository(client),
+      statements: new prisma.PrismaStatementProvider(client),
+      servicing: new prisma.PrismaServicingRequestRepository(client),
+      notifications: new prisma.PrismaNotificationRepository(client),
+    };
+  }
+
+  const seed = await buildSeed(new ScryptPasswordHasher());
+  return {
+    customers: new InMemoryCustomerRepository(seed.customers),
+    accounts: new InMemoryAccountRepository(seed.accounts),
+    cards: new InMemoryCardRepository(seed.cards),
+    statements: new InMemoryStatementProvider(seed.statements),
+    servicing: new InMemoryServicingRequestRepository(),
+    notifications: new InMemoryNotificationRepository(seed.notifications),
+  };
+}
 
 /** All use cases + the token service, wired to adapters. The HTTP layer reads this. */
 export interface AppContainer {
@@ -45,20 +87,14 @@ export interface AppContainer {
 }
 
 /**
- * Composition root. Phase 1 uses seeded in-memory adapters (exit criterion:
- * read APIs return seeded data). Postgres/Mongo adapters replace these later
- * behind the same ports — nothing above this file changes.
+ * Composition root. Uses Postgres (Prisma) when DATABASE_URL is set, and seeded
+ * in-memory adapters otherwise (tests + offline dev) — swapping one for the other
+ * touches nothing above this file.
  */
 export async function buildContainer(config: AppConfig): Promise<AppContainer> {
   const hasher = new ScryptPasswordHasher();
-  const seed = await buildSeed(hasher);
-
-  const customers = new InMemoryCustomerRepository(seed.customers);
-  const accounts = new InMemoryAccountRepository(seed.accounts);
-  const cards = new InMemoryCardRepository(seed.cards);
-  const statements = new InMemoryStatementProvider(seed.statements);
-  const servicing = new InMemoryServicingRequestRepository();
-  const notifications = new InMemoryNotificationRepository(seed.notifications);
+  const { customers, accounts, cards, statements, servicing, notifications } =
+    await buildRepositories(config);
 
   const tokenService = new JoseTokenService({
     secret: config.jwtSecret,

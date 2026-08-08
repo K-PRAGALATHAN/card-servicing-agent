@@ -8,9 +8,12 @@ for an HTTP one, without touching the pipeline.
 
 from __future__ import annotations
 
+import logging
+import os
 from dataclasses import asdict
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.adapters.inbound.http.agent_routes import create_agent_router
 from app.adapters.outbound.audit.in_memory_audit_log import InMemoryAuditLog
@@ -24,6 +27,33 @@ from app.application.agent.session_store import SessionStore
 from app.application.get_health import GetHealthUseCase
 from app.config import AppConfig
 from app.domain.conversation.policy import PolicyEngine
+from app.domain.conversation.ports import LanguageModel
+
+logger = logging.getLogger(__name__)
+
+# Without this the app's own INFO/WARNING records are swallowed by the root
+# logger's default level — which is how a dead LLM looked like a confused
+# customer. LOG_LEVEL=DEBUG for more.
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(levelname)s:%(name)s:%(message)s",
+)
+
+
+def _build_llm(config: AppConfig) -> LanguageModel:
+    """Claude, else GPT-4, else the deterministic stand-in — whichever is keyed."""
+    if config.anthropic_api_key:
+        from app.adapters.outbound.llm.anthropic_llm import AnthropicLanguageModel
+
+        logger.info("LLM: Claude (%s)", config.anthropic_model)
+        return AnthropicLanguageModel(config.anthropic_api_key, config.anthropic_model)
+    if config.openai_api_key:
+        from app.adapters.outbound.llm.openai_llm import OpenAILanguageModel
+
+        logger.info("LLM: OpenAI (%s)", config.openai_model)
+        return OpenAILanguageModel(config.openai_api_key, config.openai_model)
+    logger.info("LLM: rule-based stand-in (no API key configured)")
+    return RuleBasedLanguageModel()
 
 
 def create_app() -> FastAPI:
@@ -31,7 +61,7 @@ def create_app() -> FastAPI:
     audit = InMemoryAuditLog()
     pipeline = AgentPipeline(
         guard=HeuristicInjectionGuard(),
-        llm=RuleBasedLanguageModel(),
+        llm=_build_llm(config),
         policy=PolicyEngine(),
         tools=InMemoryToolExecutor(),
         audit=audit,
@@ -41,6 +71,13 @@ def create_app() -> FastAPI:
     sessions = SessionStore()
 
     app = FastAPI(title="Card Servicing Agent", version="0.2.0")
+    # Dev-friendly CORS so the Expo web app (a browser origin) can call the agent.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     get_health = GetHealthUseCase(SystemHealthAdapter("card-servicing-agent"))
 
     @app.get("/health")

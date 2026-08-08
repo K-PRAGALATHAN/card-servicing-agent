@@ -7,6 +7,8 @@ export interface AppConfig {
   readonly accessTokenTtl: string;
   /** Refresh token TTL, e.g. "7d". */
   readonly refreshTokenTtl: string;
+  /** When set, the app uses Postgres (Prisma); otherwise seeded in-memory adapters. */
+  readonly databaseUrl: string;
 }
 
 export function loadConfig(): AppConfig {
@@ -17,5 +19,6 @@ export function loadConfig(): AppConfig {
     jwtSecret: process.env.JWT_SECRET ?? "dev-secret-change-me",
     accessTokenTtl: process.env.ACCESS_TOKEN_TTL ?? "10m",
     refreshTokenTtl: process.env.REFRESH_TOKEN_TTL ?? "7d",
+    databaseUrl: process.env.DATABASE_URL ?? "",
   };
 }
